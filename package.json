@@ -1,0 +1,28 @@
+{
+  "name": "juvina-token-bill",
+  "version": "1.0.0",
+  "description": "See what your AI coding assistant spends - and how much of it is re-sent history. Runs locally; reads only your own log files; makes no network calls.",
+  "bin": {
+    "juvina-token-bill": "./index.js"
+  },
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude",
+    "tokens",
+    "cost",
+    "cli",
+    "ai",
+    "spend"
+  ],
+  "author": "Juvina (https://juvina.ai)",
+  "license": "MIT",
+  "homepage": "https://juvina.ai",
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ]
+}
