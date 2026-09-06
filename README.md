@@ -19,24 +19,19 @@ One command gives you two things: the terminal summary below, **and a report car
 ## What you'll see
 
 ```
-⚡ Juvina Token Bill
+⚡ Juvina Token Bill — for Claude Code
 
-This month with Claude Code · 61 sessions · 41.2M tokens
+This month · 61 sessions · 41.2M tokens
 
   76% of your AI usage was re-sent history (~31.5M tokens)
 
-What this usage would cost on pay-as-you-go:
-  Est. API-rate value: $83.70   of which re-sent history: ~$61.20 (est.)
-  With flat recalls instead of re-sent history: ~$24.10 (est., API-rate terms)
-  Est. API-rate value kept: ~$59.60
-  (recalls still cost ~1,300 tok/turn — the kept figure nets that out)
-
-On a Claude Pro/Max subscription you pay a flat monthly fee — the figures
-above are what the same usage would cost at published API rates. Either
-way, the share at the top is what's re-sent history.
+  At pay-as-you-go API rates this usage ≈ ~$83.70 — on Pro/Max you pay flat instead
+  Flat recalls instead of repetition would keep ~$59.60 of that (est.)
 
 Method: input tokens beyond each session's first turn ≈ re-sent context;
 flat-recall model = first-turn size + 1,300 tokens/turn. Full formula: --explain
+The share varies with the window measured — longer windows catch longer
+sessions, which re-send more.
 Curable → https://juvina.ai
 ```
 

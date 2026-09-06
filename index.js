@@ -347,6 +347,7 @@ function buildHtmlReport(t, keep, windowLabel) {
     box-shadow: 0 8px 32px rgba(0,0,0,.45);
   }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  h1 .forcc { color: #8b949e; font-size: 16px; font-weight: 500; }
   .range { color: #8b949e; font-size: 14px; margin-top: 6px; }
   .hero { margin: 34px 0 10px; }
   .hero .heropct {
@@ -360,11 +361,8 @@ function buildHtmlReport(t, keep, windowLabel) {
     color: transparent;
   }
   .hero .herolabel { font-size: 20px; font-weight: 600; margin-top: 8px; }
-  .subhead { color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin-top: 30px; }
-  .bignums { display: flex; gap: 48px; margin: 10px 0 6px; flex-wrap: wrap; }
-  .bignum .label { color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
-  .bignum .value { font-size: 30px; font-weight: 700; margin-top: 4px; letter-spacing: -0.02em; }
-  .framing { color: #c9d1d9; font-size: 13px; line-height: 1.6; margin-top: 12px; }
+  .framing { color: #c9d1d9; font-size: 16px; line-height: 1.6; margin-top: 26px; }
+  .framing strong { font-size: 20px; }
   .bar {
     display: flex;
     height: 34px;
@@ -407,8 +405,8 @@ function buildHtmlReport(t, keep, windowLabel) {
 </head>
 <body>
   <div class="card">
-    <h1>⚡ Juvina Token Bill</h1>
-    <div class="range">${escapeHtml(windowLabel[0].toUpperCase() + windowLabel.slice(1))} with Claude Code · ${t.sessions} session${t.sessions === 1 ? '' : 's'} · ${escapeHtml(fmtTokens(t.tokens))} tokens · generated ${escapeHtml(generated)}</div>
+    <h1>⚡ Juvina Token Bill <span class="forcc">for Claude Code</span></h1>
+    <div class="range">${escapeHtml(windowLabel[0].toUpperCase() + windowLabel.slice(1))} · ${t.sessions} session${t.sessions === 1 ? '' : 's'} · ${escapeHtml(fmtTokens(t.tokens))} tokens · generated ${escapeHtml(generated)}</div>
 
     <div class="hero">
       <div class="heropct">${resentPctLabel}</div>
@@ -424,34 +422,20 @@ function buildHtmlReport(t, keep, windowLabel) {
       <span><span class="dot grey"></span>Unique content (${uniquePctLabel})</span>
     </div>
 
-    <div class="subhead">What this usage would cost on pay-as-you-go</div>
-    <div class="bignums">
-      <div class="bignum">
-        <div class="label">Est. API-rate value</div>
-        <div class="value">${escapeHtml(fmtMoney(t.cost))}</div>
-      </div>
-      <div class="bignum">
-        <div class="label">Of which re-sent history</div>
-        <div class="value">~${escapeHtml(fmtMoney(t.resentCost))}</div>
-      </div>
-    </div>
     <p class="framing">
-      On a Claude Pro/Max subscription you pay a flat monthly fee — the figure
-      above is what the same usage would cost at published API rates. Either
-      way, the share above is what's re-sent history.
+      At pay-as-you-go API rates this usage ≈ <strong>~${escapeHtml(fmtMoney(t.cost))}</strong> — on Pro/Max you pay flat instead.
     </p>
 
     <div class="counterfactual">
-      With flat recalls instead of re-sent history: ~${escapeHtml(fmtMoney(t.flatCost))} (est., API-rate terms)<br>
-      Est. API-rate value kept: <span class="keep">~${escapeHtml(fmtMoney(keep))}</span>
+      Flat recalls instead of repetition would keep <span class="keep">~${escapeHtml(fmtMoney(keep))}</span> of that (est.)
     </div>
-    <p class="note">Why "kept" is a little less than the re-sent figure: recalls still cost ~${FLAT_RECALL_TOKENS.toLocaleString()} tok/turn — the kept figure nets that out.</p>
-    <p class="note">The share varies with the window measured — longer windows catch longer sessions, which re-send more.</p>
     ${unknownNote}
     <p class="method">
       Method: input tokens beyond each session’s first turn ≈ re-sent context;
       flat-recall model = first-turn size + ${FLAT_RECALL_TOKENS.toLocaleString()} tokens/turn.
       Estimates at published API rates — your plan and rates may differ.
+      The share varies with the window measured — longer windows catch longer
+      sessions, which re-send more.
       Full formula: <code>npx juvina-token-bill --explain</code>.
       Curable → <a href="https://juvina.ai">juvina.ai</a>
     </p>
@@ -553,30 +537,21 @@ async function main() {
   }
 
   console.log('');
-  console.log('⚡ Juvina Token Bill');
+  console.log('⚡ Juvina Token Bill — for Claude Code');
   console.log('');
   const resentPct = t.tokens > 0 ? (t.resentTokens / t.tokens) * 100 : 0;
   console.log(
-    `${windowLabel[0].toUpperCase() + windowLabel.slice(1)} with Claude Code · ${t.sessions} session${t.sessions === 1 ? '' : 's'} · ${fmtTokens(t.tokens)} tokens`
+    `${windowLabel[0].toUpperCase() + windowLabel.slice(1)} · ${t.sessions} session${t.sessions === 1 ? '' : 's'} · ${fmtTokens(t.tokens)} tokens`
   );
   console.log('');
   console.log(
     `  ${resentPct.toFixed(0)}% of your AI usage was re-sent history (~${fmtTokens(t.resentTokens)} tokens)`
   );
   console.log('');
-  console.log('What this usage would cost on pay-as-you-go:');
   console.log(
-    `  Est. API-rate value: ${fmtMoney(t.cost)}   of which re-sent history: ~${fmtMoney(t.resentCost)} (est.)`
+    `  At pay-as-you-go API rates this usage ≈ ~${fmtMoney(t.cost)} — on Pro/Max you pay flat instead`
   );
-  console.log(`  With flat recalls instead of re-sent history: ~${fmtMoney(t.flatCost)} (est., API-rate terms)`);
-  console.log(`  Est. API-rate value kept: ~${fmtMoney(keep)}`);
-  console.log(
-    `  (recalls still cost ~${FLAT_RECALL_TOKENS.toLocaleString()} tok/turn — the kept figure nets that out)`
-  );
-  console.log('');
-  console.log('On a Claude Pro/Max subscription you pay a flat monthly fee — the figures');
-  console.log('above are what the same usage would cost at published API rates. Either');
-  console.log("way, the share at the top is what's re-sent history.");
+  console.log(`  Flat recalls instead of repetition would keep ~${fmtMoney(keep)} of that (est.)`);
   console.log('');
   if (t.unknownModels.size > 0) {
     console.log(
@@ -587,6 +562,8 @@ async function main() {
   console.log(
     `flat-recall model = first-turn size + ${FLAT_RECALL_TOKENS.toLocaleString()} tokens/turn. Full formula: --explain`
   );
+  console.log('The share varies with the window measured — longer windows catch longer');
+  console.log('sessions, which re-send more.');
   console.log('Curable → https://juvina.ai');
   console.log('');
 
