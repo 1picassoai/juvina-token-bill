@@ -12,6 +12,8 @@ npx juvina-token-bill
 
 That's it. No install, no config, no account. **Runs locally; reads only your own log files; makes no network calls.** Zero dependencies, Node 18+.
 
+One command gives you two things: the terminal summary below, **and a report card** — a single self-contained `juvina-token-bill-report.html` written to the current directory and opened in your default browser. Dark theme, screenshot-ready, no server, no external assets. Use `--no-open` to skip the browser, `--no-html` to skip the file.
+
 ## What you'll see
 
 ```
@@ -37,6 +39,8 @@ Curable → https://juvina.ai
 | `--json` | Machine-readable output |
 | `--explain` | Print the full estimation formula |
 | `--dir PATH` | Read transcripts from a different directory |
+| `--no-open` | Write the HTML report card but don't open the browser |
+| `--no-html` | Skip the HTML report card entirely |
 
 ## How the estimate works (honestly)
 

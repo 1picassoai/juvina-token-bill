@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const readline = require('readline');
+const { spawn } = require('child_process');
 
 const FLAT_RECALL_TOKENS = 1300; // modelled flat-recall context per later turn
 
@@ -70,7 +71,15 @@ function ratesFor(model) {
 // CLI args
 // ---------------------------------------------------------------------------
 function parseArgs(argv) {
-  const opts = { days: null, json: false, explain: false, help: false, dir: null };
+  const opts = {
+    days: null,
+    json: false,
+    explain: false,
+    help: false,
+    dir: null,
+    noOpen: false,
+    noHtml: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--days') {
@@ -90,6 +99,8 @@ function parseArgs(argv) {
     else if (a === '--help' || a === '-h') opts.help = true;
     else if (a === '--dir') opts.dir = argv[++i];
     else if (a.startsWith('--dir=')) opts.dir = a.slice(6);
+    else if (a === '--no-open') opts.noOpen = true;
+    else if (a === '--no-html') opts.noHtml = true;
   }
   return opts;
 }
@@ -104,7 +115,12 @@ Options:
   --json       Machine-readable output
   --explain    Print the full estimation formula
   --dir PATH   Transcript directory (default: ~/.claude/projects)
+  --no-open    Write the HTML report card but don't open the browser
+  --no-html    Skip the HTML report card entirely
   -h, --help   This help
+
+Besides the terminal summary, a self-contained report card is written to
+./juvina-token-bill-report.html and opened in your default browser.
 
 Data source: Claude Code local transcripts (~/.claude/projects/**/*.jsonl).
 Runs locally; reads only your own log files; makes no network calls.
@@ -275,6 +291,166 @@ function fmtMoney(n) {
 }
 
 // ---------------------------------------------------------------------------
+// HTML report card
+// ---------------------------------------------------------------------------
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildHtmlReport(t, keep, windowLabel) {
+  const resentPct = t.tokens > 0 ? (t.resentTokens / t.tokens) * 100 : 0;
+  const uniquePct = 100 - resentPct;
+  const resentPctLabel = resentPct.toFixed(0) + '%';
+  const uniquePctLabel = uniquePct.toFixed(0) + '%';
+  const generated = new Date().toLocaleString();
+  const unknownNote =
+    t.unknownModels.size > 0
+      ? `<p class="note">Unrecognised model id(s) priced at a default rate: ${escapeHtml([...t.unknownModels].join(', '))}</p>`
+      : '';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Juvina Token Bill</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d1117;
+    color: #e6edf3;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+  .card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 16px;
+    padding: 40px 44px;
+    max-width: 680px;
+    width: 100%;
+    box-shadow: 0 8px 32px rgba(0,0,0,.45);
+  }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .range { color: #8b949e; font-size: 14px; margin-top: 6px; }
+  .bignums { display: flex; gap: 48px; margin: 30px 0 26px; flex-wrap: wrap; }
+  .bignum .label { color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  .bignum .value { font-size: 40px; font-weight: 700; margin-top: 4px; letter-spacing: -0.02em; }
+  .bar {
+    display: flex;
+    height: 34px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #30363d;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .bar .seg { display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; }
+  .bar .resent { background: linear-gradient(90deg, #d1242f, #e8942a); color: #fff; }
+  .bar .unique { background: #30363d; color: #c9d1d9; }
+  .legend { display: flex; gap: 20px; margin-top: 10px; font-size: 13px; color: #8b949e; }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: baseline; }
+  .dot.red { background: linear-gradient(90deg, #d1242f, #e8942a); }
+  .dot.grey { background: #30363d; }
+  .counterfactual {
+    margin: 30px 0 8px;
+    padding: 18px 20px;
+    background: rgba(46,160,67,.12);
+    border: 1px solid rgba(46,160,67,.4);
+    border-radius: 10px;
+    color: #3fb950;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+  .counterfactual .keep { font-size: 26px; font-weight: 700; }
+  .method { color: #8b949e; font-size: 12px; line-height: 1.6; margin-top: 26px; }
+  .method a { color: #58a6ff; text-decoration: none; }
+  .note { color: #8b949e; font-size: 12px; margin-top: 12px; }
+  .footer {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #30363d;
+    color: #6e7681;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚡ Juvina Token Bill</h1>
+    <div class="range">${escapeHtml(windowLabel[0].toUpperCase() + windowLabel.slice(1))} with Claude Code · ${t.sessions} session${t.sessions === 1 ? '' : 's'} · generated ${escapeHtml(generated)}</div>
+
+    <div class="bignums">
+      <div class="bignum">
+        <div class="label">Tokens</div>
+        <div class="value">${escapeHtml(fmtTokens(t.tokens))}</div>
+      </div>
+      <div class="bignum">
+        <div class="label">Est. cost</div>
+        <div class="value">${escapeHtml(fmtMoney(t.cost))}</div>
+      </div>
+    </div>
+
+    <div class="bar">
+      <div class="seg resent" style="width:${resentPct.toFixed(1)}%">${resentPct >= 12 ? 'Re-sent history ' + resentPctLabel : ''}</div>
+      <div class="seg unique" style="width:${uniquePct.toFixed(1)}%">${uniquePct >= 12 ? 'Unique content ' + uniquePctLabel : ''}</div>
+    </div>
+    <div class="legend">
+      <span><span class="dot red"></span>Re-sent history ~${escapeHtml(fmtTokens(t.resentTokens))} (${resentPctLabel}, est. ${escapeHtml(fmtMoney(t.resentCost))})</span>
+      <span><span class="dot grey"></span>Unique content (${uniquePctLabel})</span>
+    </div>
+
+    <div class="counterfactual">
+      Same period with flat recalls: ~${escapeHtml(fmtMoney(t.flatCost))} (est.)<br>
+      You'd keep: <span class="keep">~${escapeHtml(fmtMoney(keep))}</span> (est.)
+    </div>
+    ${unknownNote}
+    <p class="method">
+      Method: input tokens beyond each session’s first turn ≈ re-sent context;
+      flat-recall model = first-turn size + ${FLAT_RECALL_TOKENS.toLocaleString()} tokens/turn.
+      Estimates at published API rates — your plan and rates may differ.
+      Full formula: <code>npx juvina-token-bill --explain</code>.
+      Curable → <a href="https://juvina.ai">juvina.ai</a>
+    </p>
+    <div class="footer">Generated locally · reads only your own log files · makes no network calls</div>
+  </div>
+</body>
+</html>
+`;
+}
+
+function openInBrowser(file) {
+  try {
+    let cmd, args;
+    if (process.platform === 'win32') {
+      cmd = 'cmd';
+      args = ['/c', 'start', '', file];
+    } else if (process.platform === 'darwin') {
+      cmd = 'open';
+      args = [file];
+    } else {
+      cmd = 'xdg-open';
+      args = [file];
+    }
+    const child = spawn(cmd, args, { detached: true, stdio: 'ignore' });
+    child.on('error', () => {}); // headless / no browser - fail silently
+    child.unref();
+  } catch {
+    /* fail silently */
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 async function main() {
@@ -333,6 +509,7 @@ async function main() {
         2
       )
     );
+    emitHtmlReport(opts, t, keep, windowLabel);
     return;
   }
 
@@ -365,6 +542,19 @@ async function main() {
   console.log('');
 
   if (opts.explain) console.log(EXPLAIN.trim() + '\n');
+
+  emitHtmlReport(opts, t, keep, windowLabel);
+}
+
+function emitHtmlReport(opts, t, keep, windowLabel) {
+  if (opts.noHtml) return;
+  const reportPath = path.join(process.cwd(), 'juvina-token-bill-report.html');
+  try {
+    fs.writeFileSync(reportPath, buildHtmlReport(t, keep, windowLabel), 'utf8');
+  } catch {
+    return; // can't write here - the terminal summary already ran
+  }
+  if (!opts.noOpen) openInBrowser(reportPath);
 }
 
 main().catch((err) => {
