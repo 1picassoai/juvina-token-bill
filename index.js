@@ -574,12 +574,31 @@ async function main() {
 
 function emitHtmlReport(opts, t, keep, windowLabel) {
   if (opts.noHtml) return;
-  const reportPath = path.join(process.cwd(), 'juvina-token-bill-report.html');
-  try {
-    fs.writeFileSync(reportPath, buildHtmlReport(t, keep, windowLabel), 'utf8');
-  } catch {
-    return; // can't write here - the terminal summary already ran
+  const stamp = new Date().toISOString().slice(0, 10);
+  const candidates = [
+    path.join(process.cwd(), 'juvina-token-bill-report.html'),
+    path.join(os.tmpdir(), 'juvina-token-bill-report-' + stamp + '.html'),
+  ];
+  let reportPath = null;
+  let lastErr = null;
+  for (const candidate of candidates) {
+    try {
+      fs.writeFileSync(candidate, buildHtmlReport(t, keep, windowLabel), 'utf8');
+      reportPath = candidate;
+      break;
+    } catch (err) {
+      lastErr = err;
+    }
   }
+  if (!reportPath) {
+    console.error(
+      'Could not write the HTML report card (' +
+        (lastErr && lastErr.message ? lastErr.message : 'unknown error') +
+        ') - the summary above is complete; use --no-html to silence this.'
+    );
+    return;
+  }
+  console.log('Report card: ' + reportPath + (opts.noOpen ? '' : ' (opening in your browser)'));
   if (!opts.noOpen) openInBrowser(reportPath);
 }
 
