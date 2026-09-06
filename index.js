@@ -2,7 +2,8 @@
 'use strict';
 
 /*
- * Juvina Token Bill - estimate your AI coding-assistant spend from local logs.
+ * Juvina Token Bill - see how much of your AI coding usage is re-sent history,
+ * and what that repetition would cost at published API rates.
  * Runs locally; reads only your own log files; makes no network calls.
  * MIT License - https://juvina.ai
  */
@@ -23,6 +24,7 @@ const FLAT_RECALL_TOKENS = 1300; // modelled flat-recall context per later turn
 const PRICING = [
   //  [substring,      $/MTok in, $/MTok out, $/MTok cache-read (optional)]
   ['fable-5-1', 10, 50, 0.25],
+  ['mythos-5-1', 10, 50, 0.25],
   ['fable', 10, 50],
   ['mythos', 10, 50],
   ['opus-4-1', 15, 75],
@@ -32,15 +34,15 @@ const PRICING = [
   ['opus-4-7', 5, 25],
   ['opus-4-8', 5, 25],
   ['opus-5', 5, 25],
+  ['3-opus', 15, 75], // legacy id form: claude-3-opus-YYYYMMDD
   ['opus-4', 15, 75],
-  ['opus-3', 15, 75],
   ['opus', 5, 25],
   ['sonnet-4-6', 3, 15],
   ['sonnet-5', 2, 10],
   ['sonnet', 3, 15],
   ['haiku-4-5', 1, 5],
-  ['haiku-3-5', 0.8, 4],
-  ['haiku-3', 0.25, 1.25],
+  ['3-5-haiku', 0.8, 4], // legacy id form: claude-3-5-haiku-YYYYMMDD
+  ['3-haiku', 0.25, 1.25], // legacy id form: claude-3-haiku-YYYYMMDD
   ['haiku', 1, 5],
 ];
 const FALLBACK_RATE = { input: 3, output: 15, cacheRead: 0.3 }; // unknown-model default
@@ -106,7 +108,8 @@ function parseArgs(argv) {
 }
 
 const HELP = `
-Juvina Token Bill - estimate your AI coding-assistant spend from local logs.
+Juvina Token Bill - see how much of your AI coding usage is re-sent history,
+and what that repetition would cost at published pay-as-you-go API rates.
 
 Usage: npx juvina-token-bill [options]
 
@@ -124,7 +127,8 @@ Besides the terminal summary, a self-contained report card is written to
 
 Data source: Claude Code local transcripts (~/.claude/projects/**/*.jsonl).
 Runs locally; reads only your own log files; makes no network calls.
-All money figures are estimates.
+All money figures are estimates of API-rate value, not your actual bill:
+on a Claude Pro/Max subscription you pay a flat monthly fee.
 `;
 
 const EXPLAIN = `
@@ -142,7 +146,7 @@ How the estimate works
    tools, your first message). On every later turn, context above that
    baseline is counted as re-sent history.
 
-4. Costing (Est.): input tokens at the model's input rate, cache writes at
+4. API-rate value (Est.): input tokens at the model's published API input rate, cache writes at
    1.25x input, cache reads at the cache-read rate, output at the output
    rate. Re-sent history is priced at each turn's blended context rate, so
    cheap cache-read tokens stay cheap in the estimate.
@@ -151,8 +155,10 @@ How the estimate works
    baseline + ${FLAT_RECALL_TOKENS} tokens (a targeted memory recall instead of the full
    history), at the same blended rate. Output tokens are unchanged.
 
-Everything is an estimate: rates are a static table, cache pricing is
-approximated, and your billing plan may differ.
+Everything is an estimate, and every money figure is API-rate value - what
+this usage would cost on pay-as-you-go at published API rates - not your
+actual bill. On a Claude Pro/Max subscription you pay a flat monthly fee.
+The re-sent-history percentage is plan-independent.
 `;
 
 // ---------------------------------------------------------------------------
@@ -342,9 +348,23 @@ function buildHtmlReport(t, keep, windowLabel) {
   }
   h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
   .range { color: #8b949e; font-size: 14px; margin-top: 6px; }
-  .bignums { display: flex; gap: 48px; margin: 30px 0 26px; flex-wrap: wrap; }
+  .hero { margin: 34px 0 10px; }
+  .hero .heropct {
+    font-size: 84px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    background: linear-gradient(90deg, #d1242f, #e8942a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero .herolabel { font-size: 20px; font-weight: 600; margin-top: 8px; }
+  .subhead { color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin-top: 30px; }
+  .bignums { display: flex; gap: 48px; margin: 10px 0 6px; flex-wrap: wrap; }
   .bignum .label { color: #8b949e; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
-  .bignum .value { font-size: 40px; font-weight: 700; margin-top: 4px; letter-spacing: -0.02em; }
+  .bignum .value { font-size: 30px; font-weight: 700; margin-top: 4px; letter-spacing: -0.02em; }
+  .framing { color: #c9d1d9; font-size: 13px; line-height: 1.6; margin-top: 12px; }
   .bar {
     display: flex;
     height: 34px;
@@ -388,17 +408,11 @@ function buildHtmlReport(t, keep, windowLabel) {
 <body>
   <div class="card">
     <h1>⚡ Juvina Token Bill</h1>
-    <div class="range">${escapeHtml(windowLabel[0].toUpperCase() + windowLabel.slice(1))} with Claude Code · ${t.sessions} session${t.sessions === 1 ? '' : 's'} · generated ${escapeHtml(generated)}</div>
+    <div class="range">${escapeHtml(windowLabel[0].toUpperCase() + windowLabel.slice(1))} with Claude Code · ${t.sessions} session${t.sessions === 1 ? '' : 's'} · ${escapeHtml(fmtTokens(t.tokens))} tokens · generated ${escapeHtml(generated)}</div>
 
-    <div class="bignums">
-      <div class="bignum">
-        <div class="label">Tokens</div>
-        <div class="value">${escapeHtml(fmtTokens(t.tokens))}</div>
-      </div>
-      <div class="bignum">
-        <div class="label">Est. cost</div>
-        <div class="value">${escapeHtml(fmtMoney(t.cost))}</div>
-      </div>
+    <div class="hero">
+      <div class="heropct">${resentPctLabel}</div>
+      <div class="herolabel">of your AI usage was re-sent history (~${escapeHtml(fmtTokens(t.resentTokens))} tokens)</div>
     </div>
 
     <div class="bar">
@@ -406,13 +420,30 @@ function buildHtmlReport(t, keep, windowLabel) {
       <div class="seg unique" style="width:${uniquePct.toFixed(1)}%">${uniquePct >= 12 ? 'Unique content ' + uniquePctLabel : ''}</div>
     </div>
     <div class="legend">
-      <span><span class="dot red"></span>Re-sent history ~${escapeHtml(fmtTokens(t.resentTokens))} (${resentPctLabel}, est. ${escapeHtml(fmtMoney(t.resentCost))})</span>
+      <span><span class="dot red"></span>Re-sent history ~${escapeHtml(fmtTokens(t.resentTokens))} (${resentPctLabel})</span>
       <span><span class="dot grey"></span>Unique content (${uniquePctLabel})</span>
     </div>
 
+    <div class="subhead">What this usage would cost on pay-as-you-go</div>
+    <div class="bignums">
+      <div class="bignum">
+        <div class="label">Est. API-rate value</div>
+        <div class="value">${escapeHtml(fmtMoney(t.cost))}</div>
+      </div>
+      <div class="bignum">
+        <div class="label">Of which re-sent history</div>
+        <div class="value">~${escapeHtml(fmtMoney(t.resentCost))}</div>
+      </div>
+    </div>
+    <p class="framing">
+      On a Claude Pro/Max subscription you pay a flat monthly fee — the figure
+      above is what the same usage would cost at published API rates. Either
+      way, the share above is what's re-sent history.
+    </p>
+
     <div class="counterfactual">
-      Same period with flat recalls: ~${escapeHtml(fmtMoney(t.flatCost))} (est.)<br>
-      You'd keep: <span class="keep">~${escapeHtml(fmtMoney(keep))}</span> (est.)
+      Same period with flat recalls: ${resentPctLabel} of tokens not re-sent — ~${escapeHtml(fmtMoney(t.flatCost))} in API-rate terms (est.)<br>
+      Est. API-rate value kept: <span class="keep">~${escapeHtml(fmtMoney(keep))}</span>
     </div>
     ${unknownNote}
     <p class="method">
@@ -496,6 +527,7 @@ async function main() {
           sessions: t.sessions,
           turns: t.turns,
           tokens: t.tokens,
+          resentHistoryPct: +(t.tokens > 0 ? (t.resentTokens / t.tokens) * 100 : 0).toFixed(1),
           estCostUsd: +t.cost.toFixed(2),
           resentHistoryTokens: t.resentTokens,
           estResentCostUsd: +t.resentCost.toFixed(2),
@@ -503,6 +535,8 @@ async function main() {
           estKeepUsd: +keep.toFixed(2),
           flatRecallTokensPerTurn: FLAT_RECALL_TOKENS,
           unknownModels: [...t.unknownModels],
+          costBasis:
+            'Est. API-rate value: what this usage would cost on pay-as-you-go at published API rates. Not your actual bill - on a Claude Pro/Max subscription you pay a flat monthly fee. resentHistoryPct is plan-independent.',
           note: 'All money figures are estimates. Runs locally; reads only your own log files; makes no network calls.',
         },
         null,
@@ -516,18 +550,26 @@ async function main() {
   console.log('');
   console.log('⚡ Juvina Token Bill');
   console.log('');
-  console.log(`${windowLabel[0].toUpperCase() + windowLabel.slice(1)} with Claude Code:`);
+  const resentPct = t.tokens > 0 ? (t.resentTokens / t.tokens) * 100 : 0;
   console.log(
-    `  Sessions: ${t.sessions}   Tokens: ${fmtTokens(t.tokens)}   Est. cost: ${fmtMoney(t.cost)}`
-  );
-  console.log(
-    `  Of which re-sent history: ~${fmtTokens(t.resentTokens)} (~${fmtMoney(t.resentCost)})`
+    `${windowLabel[0].toUpperCase() + windowLabel.slice(1)} with Claude Code · ${t.sessions} session${t.sessions === 1 ? '' : 's'} · ${fmtTokens(t.tokens)} tokens`
   );
   console.log('');
   console.log(
-    `Same period if history were flat recalls (~${FLAT_RECALL_TOKENS.toLocaleString()} tok/turn): ~${fmtMoney(t.flatCost)}`
+    `  ${resentPct.toFixed(0)}% of your AI usage was re-sent history (~${fmtTokens(t.resentTokens)} tokens)`
   );
-  console.log(`${' '.repeat(42)}You'd keep: ~${fmtMoney(keep)}`);
+  console.log('');
+  console.log('What this usage would cost on pay-as-you-go:');
+  console.log(
+    `  Est. API-rate value: ${fmtMoney(t.cost)}   of which re-sent history: ~${fmtMoney(t.resentCost)} (est.)`
+  );
+  console.log(
+    `  Same period with flat recalls (~${FLAT_RECALL_TOKENS.toLocaleString()} tok/turn): ~${fmtMoney(t.flatCost)} — you'd keep ~${fmtMoney(keep)} (est., API-rate terms)`
+  );
+  console.log('');
+  console.log('On a Claude Pro/Max subscription you pay a flat monthly fee — the figures');
+  console.log('above are what the same usage would cost at published API rates. Either');
+  console.log("way, the share at the top is what's re-sent history.");
   console.log('');
   if (t.unknownModels.size > 0) {
     console.log(

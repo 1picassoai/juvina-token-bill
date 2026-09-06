@@ -1,7 +1,7 @@
 {
   "name": "juvina-token-bill",
   "version": "1.0.0",
-  "description": "See what your AI coding assistant spends - and how much of it is re-sent history. Runs locally; reads only your own log files; makes no network calls.",
+  "description": "See how much of your AI coding usage is re-sent history - and what that repetition would cost at API rates. Runs locally; reads only your own log files; makes no network calls.",
   "bin": {
     "juvina-token-bill": "./index.js"
   },
