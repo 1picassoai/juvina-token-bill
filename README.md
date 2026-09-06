@@ -1,6 +1,6 @@
 # ⚡ Juvina Token Bill
 
-**See how much of your AI coding usage is re-sent history — and what that repetition would cost at API rates.**
+**See how much of your Claude Code usage is re-sent history — and what that repetition would cost at API rates. A local CLI for Claude Code.**
 
 Every time your assistant answers, the whole conversation so far — files it read, commands it ran, everything — goes back up with the request. By turn 40 of a long session the same context is processed over and over. This tiny CLI reads your own local Claude Code logs and shows you the share of your usage that is re-sent history (true on every plan), plus what that usage would cost at published pay-as-you-go API rates.
 
@@ -27,7 +27,9 @@ This month with Claude Code · 61 sessions · 41.2M tokens
 
 What this usage would cost on pay-as-you-go:
   Est. API-rate value: $83.70   of which re-sent history: ~$61.20 (est.)
-  Same period with flat recalls (~1,300 tok/turn): ~$24.10 — you'd keep ~$59.60 (est., API-rate terms)
+  With flat recalls instead of re-sent history: ~$24.10 (est., API-rate terms)
+  Est. API-rate value kept: ~$59.60
+  (recalls still cost ~1,300 tok/turn — the kept figure nets that out)
 
 On a Claude Pro/Max subscription you pay a flat monthly fee — the figures
 above are what the same usage would cost at published API rates. Either
@@ -57,6 +59,16 @@ Curable → https://juvina.ai
 - **The "flat recall" line:** the same sessions re-priced in API-rate terms as if each later turn carried the baseline plus ~1,300 tokens of targeted recall instead of the full history. That's the model a memory engine works on: fetch what's relevant, not everything.
 
 Run `npx juvina-token-bill --explain` for the full formula.
+
+Note: the share varies with the window measured — longer windows catch longer sessions, which re-send more.
+
+## Supported assistants
+
+**Claude Code today.** v1 reads the local transcripts Claude Code writes under `~/.claude/projects/`. Support for more assistants is planned. If there are no Claude Code logs on the machine, the tool says so and exits cleanly — if you use Claude Code on another machine, run it there.
+
+## Accuracy
+
+Everything here is an **estimate**. The method is deliberately simple, and the formula is open — run `npx juvina-token-bill --explain` to see exactly how each number is computed. The logs it reads are your own, so you can check the sums yourself: every token count comes straight from the usage fields in your transcripts. If you find a case where the estimate is off, we'd like to hear about it.
 
 ## Why "curable"?
 

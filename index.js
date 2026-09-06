@@ -442,9 +442,11 @@ function buildHtmlReport(t, keep, windowLabel) {
     </p>
 
     <div class="counterfactual">
-      Same period with flat recalls: ${resentPctLabel} of tokens not re-sent — ~${escapeHtml(fmtMoney(t.flatCost))} in API-rate terms (est.)<br>
+      With flat recalls instead of re-sent history: ~${escapeHtml(fmtMoney(t.flatCost))} (est., API-rate terms)<br>
       Est. API-rate value kept: <span class="keep">~${escapeHtml(fmtMoney(keep))}</span>
     </div>
+    <p class="note">Why "kept" is a little less than the re-sent figure: recalls still cost ~${FLAT_RECALL_TOKENS.toLocaleString()} tok/turn — the kept figure nets that out.</p>
+    <p class="note">The share varies with the window measured — longer windows catch longer sessions, which re-send more.</p>
     ${unknownNote}
     <p class="method">
       Method: input tokens beyond each session’s first turn ≈ re-sent context;
@@ -505,9 +507,12 @@ async function main() {
 
   const files = findTranscripts(root);
   if (files.length === 0) {
-    console.error(`juvina-token-bill: no Claude Code transcripts found under ${root}`);
-    console.error('Nothing to report. (This tool reads only your own local log files.)');
-    process.exit(2);
+    console.log('');
+    console.log(`No Claude Code transcripts found under ${root}.`);
+    console.log('v1 reads Claude Code usage logs; support for more assistants is planned.');
+    console.log('If you use Claude Code on another machine, run it there.');
+    console.log('');
+    return;
   }
 
   const turnsBySession = new Map();
@@ -563,8 +568,10 @@ async function main() {
   console.log(
     `  Est. API-rate value: ${fmtMoney(t.cost)}   of which re-sent history: ~${fmtMoney(t.resentCost)} (est.)`
   );
+  console.log(`  With flat recalls instead of re-sent history: ~${fmtMoney(t.flatCost)} (est., API-rate terms)`);
+  console.log(`  Est. API-rate value kept: ~${fmtMoney(keep)}`);
   console.log(
-    `  Same period with flat recalls (~${FLAT_RECALL_TOKENS.toLocaleString()} tok/turn): ~${fmtMoney(t.flatCost)} — you'd keep ~${fmtMoney(keep)} (est., API-rate terms)`
+    `  (recalls still cost ~${FLAT_RECALL_TOKENS.toLocaleString()} tok/turn — the kept figure nets that out)`
   );
   console.log('');
   console.log('On a Claude Pro/Max subscription you pay a flat monthly fee — the figures');
