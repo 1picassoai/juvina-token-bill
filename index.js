@@ -575,8 +575,18 @@ async function main() {
 function emitHtmlReport(opts, t, keep, windowLabel) {
   if (opts.noHtml) return;
   const stamp = new Date().toISOString().slice(0, 10);
+  // Never replace a file we did not write: if the plain name is taken, step aside to a
+  // stamped name (-2, -3...) rather than destroy whatever is there.
+  let cwdCard = path.join(process.cwd(), 'juvina-token-bill-report.html');
+  if (fs.existsSync(cwdCard)) {
+    let alt = path.join(process.cwd(), 'juvina-token-bill-report-' + stamp + '.html');
+    for (let n = 2; fs.existsSync(alt); n++) {
+      alt = path.join(process.cwd(), 'juvina-token-bill-report-' + stamp + '-' + n + '.html');
+    }
+    cwdCard = alt;
+  }
   const candidates = [
-    path.join(process.cwd(), 'juvina-token-bill-report.html'),
+    cwdCard,
     path.join(os.tmpdir(), 'juvina-token-bill-report-' + stamp + '.html'),
   ];
   let reportPath = null;

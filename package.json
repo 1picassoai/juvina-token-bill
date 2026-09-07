@@ -11,15 +11,23 @@
   },
   "keywords": [
     "claude",
+    "claude-code",
+    "anthropic",
     "tokens",
+    "token-cost",
     "cost",
+    "spend",
     "cli",
     "ai",
-    "spend"
+    "usage"
   ],
   "author": "Juvina (https://juvina.ai)",
   "license": "MIT",
   "homepage": "https://juvina.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1picassoai/juvina-token-bill.git"
+  },
   "files": [
     "index.js",
     "README.md",
