@@ -1,3 +1,8 @@
 node_modules/
 *.tgz
 juvina-token-bill-report.html
+
+# Publisher credentials never enter a public repo. The .npmrc here uses ${NPM_TOKEN} and holds no
+# secret today, but it was untracked AND unignored - one `git add .` from being committed, and the
+# day someone pastes a literal token in to test a publish, it goes public with it.
+.npmrc
